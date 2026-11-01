@@ -3,10 +3,21 @@ package daemon
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
+	box "github.com/sagernet/sing-box"
+	"github.com/sagernet/sing-box/adapter/certificate"
+	"github.com/sagernet/sing-box/adapter/endpoint"
+	"github.com/sagernet/sing-box/adapter/inbound"
+	"github.com/sagernet/sing-box/adapter/outbound"
+	boxservice "github.com/sagernet/sing-box/adapter/service"
+	"github.com/sagernet/sing-box/dns"
+	"github.com/sagernet/sing-box/dns/transport/local"
+	"github.com/sagernet/sing-box/protocol/direct"
 	"github.com/sagernet/sing/service"
+	"github.com/sagernet/sing/service/filemanager"
 )
 
 type factoryMarker struct{ generation int }
@@ -40,6 +51,51 @@ func TestContextFactoryIsOptionalLazyAndFailsWithoutFallback(t *testing.T) {
 	s.contextFactory = func(context.Context, bool) (context.Context, error) { return nil, nil }
 	if err := s.CheckConfig(parent, "{}"); err == nil || !strings.Contains(err.Error(), "nil context") {
 		t.Fatalf("nil factory context accepted: %v", err)
+	}
+}
+
+func TestSuccessfulReloadAndCheckDoNotReuseRunningGeneration(t *testing.T) {
+	dir := t.TempDir()
+	parent := service.ContextWithDefaultRegistry(filemanager.WithDefault(context.Background(), dir, dir, os.Getuid(), os.Getgid()))
+	var contexts []context.Context
+	s := NewStartedService(ServiceOptions{Context: parent, LogMaxLines: 10, ContextFactory: func(ctx context.Context, check bool) (context.Context, error) {
+		if service.FromContext[*factoryMarker](ctx) != nil {
+			t.Fatal("inherited live generation")
+		}
+		service.MustRegister[*factoryMarker](ctx, &factoryMarker{len(contexts) + 1})
+		contexts = append(contexts, ctx)
+		out := outbound.NewRegistry()
+		direct.RegisterOutbound(out)
+		transports := dns.NewTransportRegistry()
+		local.RegisterTransport(transports)
+		return box.Context(ctx, inbound.NewRegistry(), out, endpoint.NewRegistry(), transports, boxservice.NewRegistry(), certificate.NewRegistry()), nil
+	}})
+	defer s.Close()
+	defer s.CloseService()
+	const config = `{"log":{"disabled":true},"outbounds":[{"type":"direct","tag":"direct"}]}`
+	if err := s.StartOrReloadService(parent, config, nil); err != nil {
+		t.Fatal(err)
+	}
+	first := s.Instance()
+	if first == nil || contexts[0].Err() != nil {
+		t.Fatal("first run missing")
+	}
+	if err := s.StartOrReloadService(parent, config, nil); err != nil {
+		t.Fatal(err)
+	}
+	second := s.Instance()
+	if second == nil || second == first || contexts[0].Err() != context.Canceled || contexts[1].Err() != nil {
+		t.Fatal("reload reused running generation")
+	}
+	before := s.serviceStatus
+	if err := s.CheckConfig(parent, config); err != nil {
+		t.Fatal(err)
+	}
+	if s.Instance() != second || s.serviceStatus != before || contexts[1].Err() != nil || contexts[2].Err() != context.Canceled {
+		t.Fatal("check affected live instance")
+	}
+	if service.FromContext[*factoryMarker](parent) != nil {
+		t.Fatal("parent mutated")
 	}
 }
 

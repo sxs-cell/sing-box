@@ -33,9 +33,3 @@ func commandContextFactory(platform PlatformInterface) (daemon.ContextFactory, e
 		return ctx, nil
 	}, nil
 }
-
-// CheckConfig validates an isolated generation through the optional factory.
-// It does not save snapshots, publish an instance, or open a platform TUN.
-func (s *CommandServer) CheckConfig(configContent string) error {
-	return s.StartedService.CheckConfig(s.ctx, configContent)
-}

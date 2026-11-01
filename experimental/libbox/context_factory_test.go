@@ -56,7 +56,7 @@ func TestCommandFactoryIsLazyAndErrorsReachRunAndCheck(t *testing.T) {
 	if calls != 0 {
 		t.Fatal("eager factory")
 	}
-	if err = s.CheckConfig("{}"); err != want {
+	if err = s.StartedService.CheckConfig(s.ctx, "{}"); err != want {
 		t.Fatalf("check error changed: %v", err)
 	}
 	if err = s.StartOrReloadService("{}", &OverrideOptions{}); !errors.Is(err, want) {
@@ -86,7 +86,7 @@ func TestCommandCheckParsesCallerOutboundWithoutTouchingLivePlatformOrFiles(t *t
 	defer s.Close()
 	live := s.platformWrapper
 	for range 2 {
-		if err = s.CheckConfig(`{"log":{"output":"check.log"},"outbounds":[{"type":"factory-only","tag":"test"}],"experimental":{"cache_file":{"enabled":true,"path":"check.db"}}}`); err != nil {
+		if err = s.StartedService.CheckConfig(s.ctx, `{"log":{"output":"check.log"},"outbounds":[{"type":"factory-only","tag":"test"}],"experimental":{"cache_file":{"enabled":true,"path":"check.db"}}}`); err != nil {
 			t.Fatal(err)
 		}
 	}

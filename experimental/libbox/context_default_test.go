@@ -1,3 +1,5 @@
+//go:build !ferry_mobile
+
 package libbox
 
 import (
@@ -35,7 +37,7 @@ func TestDefaultRegistriesAndConfigEntrypointsRemainAvailable(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer s.Close()
-	if err = s.CheckConfig(config); err != nil {
+	if err = s.StartedService.CheckConfig(s.ctx, config); err != nil {
 		t.Fatal(err)
 	}
 }

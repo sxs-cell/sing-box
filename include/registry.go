@@ -1,3 +1,5 @@
+//go:build !ferry_mobile
+
 package include
 
 import (
