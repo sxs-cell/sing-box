@@ -12,8 +12,6 @@ import (
 	"github.com/sagernet/sing-box/adapter"
 	C "github.com/sagernet/sing-box/constant"
 	"github.com/sagernet/sing-box/dns"
-	"github.com/sagernet/sing-box/include"
-	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/option"
 	"github.com/sagernet/sing-box/schema"
 	tun "github.com/sagernet/sing-tun"
@@ -23,22 +21,7 @@ import (
 	"github.com/sagernet/sing/common/logger"
 	"github.com/sagernet/sing/common/x/list"
 	"github.com/sagernet/sing/service"
-	"github.com/sagernet/sing/service/filemanager"
 )
-
-func baseContext(platformInterface PlatformInterface) context.Context {
-	dnsRegistry := include.DNSTransportRegistry()
-	if platformInterface != nil {
-		if localTransport := platformInterface.LocalDNSTransport(); localTransport != nil {
-			dns.RegisterTransport[option.LocalDNSServerOptions](dnsRegistry, C.DNSTypeLocal, func(ctx context.Context, logger log.ContextLogger, tag string, options option.LocalDNSServerOptions) (adapter.DNSTransport, error) {
-				return newPlatformTransport(ctx, logger, localTransport, tag, options)
-			})
-		}
-	}
-	ctx := context.Background()
-	ctx = filemanager.WithDefault(ctx, sWorkingPath, sTempPath, sUserID, sGroupID)
-	return box.Context(ctx, include.InboundRegistry(), include.OutboundRegistry(), include.EndpointRegistry(), dnsRegistry, include.ServiceRegistry(), include.CertificateProviderRegistry())
-}
 
 func parseConfig(ctx context.Context, configContent string) (option.Options, error) {
 	options, err := json.UnmarshalExtendedContext[option.Options](ctx, []byte(configContent))
@@ -49,7 +32,10 @@ func parseConfig(ctx context.Context, configContent string) (option.Options, err
 }
 
 func CheckConfig(configContent string) error {
-	ctx := baseContext(nil)
+	ctx, err := standaloneContext()
+	if err != nil {
+		return err
+	}
 	options, err := parseConfig(ctx, configContent)
 	if err != nil {
 		return err
@@ -249,7 +235,11 @@ func (s *interfaceMonitorStub) MyInterfaces() []string {
 }
 
 func GenerateConfigSchema() (*StringBox, error) {
-	content, err := schema.Generate(baseContext(nil), reflect.TypeFor[option.Options]())
+	ctx, err := standaloneContext()
+	if err != nil {
+		return nil, err
+	}
+	content, err := schema.Generate(ctx, reflect.TypeFor[option.Options]())
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +247,11 @@ func GenerateConfigSchema() (*StringBox, error) {
 }
 
 func FormatConfig(configContent string) (*StringBox, error) {
-	options, err := parseConfig(baseContext(nil), configContent)
+	ctx, err := standaloneContext()
+	if err != nil {
+		return nil, err
+	}
+	options, err := parseConfig(ctx, configContent)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +266,11 @@ func FormatConfig(configContent string) (*StringBox, error) {
 }
 
 func HasTunInbound(configContent string) (bool, error) {
-	options, err := parseConfig(baseContext(nil), configContent)
+	ctx, err := standaloneContext()
+	if err != nil {
+		return false, err
+	}
+	options, err := parseConfig(ctx, configContent)
 	if err != nil {
 		return false, err
 	}

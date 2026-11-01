@@ -43,7 +43,8 @@ const (
 var _ StartedServiceServer = (*StartedService)(nil)
 
 type StartedService struct {
-	ctx context.Context
+	ctx            context.Context
+	contextFactory ContextFactory
 	// platform adapter.PlatformInterface
 	handler           PlatformHandler
 	debug             bool
@@ -78,6 +79,8 @@ type StartedService struct {
 
 type ServiceOptions struct {
 	Context context.Context
+	// ContextFactory is optional and is called for each run and validation, never at construction.
+	ContextFactory ContextFactory
 	// Platform           adapter.PlatformInterface
 	Handler           PlatformHandler
 	Debug             bool
@@ -94,7 +97,8 @@ type ServiceOptions struct {
 
 func NewStartedService(options ServiceOptions) *StartedService {
 	s := &StartedService{
-		ctx: options.Context,
+		ctx:            options.Context,
+		contextFactory: options.ContextFactory,
 		// platform:                options.Platform,
 		handler:           options.Handler,
 		debug:             options.Debug,

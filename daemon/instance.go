@@ -43,6 +43,15 @@ func (s *StartedService) CheckConfig(ctx context.Context, configContent string) 
 	selectedLocale := locale.FromContext(ctx)
 	ctx, _ = locale.ContextWithLocale(s.ctx, selectedLocale.Locale)
 	ctx = service.ExtendContext(ctx)
+	if s.contextFactory != nil {
+		checkCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		var err error
+		ctx, err = s.prepareContext(checkCtx, true)
+		if err != nil {
+			return err
+		}
+	}
 	options, err := parseConfig(ctx, configContent)
 	if err != nil {
 		return err
@@ -88,6 +97,11 @@ func (s *StartedService) newInstance(ctx context.Context, profileContent string,
 	ctx = service.ExtendContext(ctx)
 	service.MustRegister[deprecated.Manager](ctx, new(deprecatedManager))
 	ctx, cancel := context.WithCancel(ctx)
+	ctx, err := s.prepareContext(ctx, false)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
 	options, err := parseConfig(ctx, profileContent)
 	if err != nil {
 		cancel()

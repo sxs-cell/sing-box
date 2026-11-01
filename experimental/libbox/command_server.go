@@ -52,6 +52,10 @@ type CommandServerHandler interface {
 }
 
 func NewCommandServer(handler CommandServerHandler, platformInterface PlatformInterface) (*CommandServer, error) {
+	contextFactory, err := commandContextFactory(platformInterface)
+	if err != nil {
+		return nil, err
+	}
 	ctx := baseContext(platformInterface)
 	powerManager := powerreport.NewManager()
 	service.MustRegister[*powerreport.Manager](ctx, powerManager)
@@ -69,7 +73,8 @@ func NewCommandServer(handler CommandServerHandler, platformInterface PlatformIn
 		powerManager:      powerManager,
 	}
 	server.StartedService = daemon.NewStartedService(daemon.ServiceOptions{
-		Context: ctx,
+		Context:        ctx,
+		ContextFactory: contextFactory,
 		// Platform:         platformWrapper,
 		Handler:           (*platformHandler)(server),
 		Debug:             sDebug,
