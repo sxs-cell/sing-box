@@ -1,4 +1,4 @@
-//go:build darwin
+//go:build !ferry_mobile && (darwin)
 
 package oomprofile
 

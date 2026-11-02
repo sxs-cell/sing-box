@@ -88,21 +88,7 @@ func NewCommandServer(handler CommandServerHandler, platformInterface PlatformIn
 		// GroupID:          sGroupID,
 		// SystemProxyEnabled: false,
 	})
-	oomRecorder := oomkiller.NewRecorder(OOMRecorderOptions(server.StartedService))
-	service.MustRegister[*oomkiller.Recorder](ctx, oomRecorder)
-	oomRecorder.Start()
-	server.oomRecorder = oomRecorder
-	server.managedService = daemon.NewManagedService(daemon.ManagedServiceOptions{
-		Handler:     (*platformHandler)(server),
-		Debug:       sDebug,
-		OOMRecorder: oomRecorder,
-	})
-	if sPowerReportEnabled {
-		err := powerManager.Start(PowerReportOptions(server.StartedService))
-		if err != nil {
-			log.StdLogger().Error(E.Cause(err, "start power report recorder"))
-		}
-	}
+	server.startReportRecorders(ctx)
 	return server, nil
 }
 
@@ -202,7 +188,9 @@ func (s *CommandServer) Close() {
 	}
 	common.Close(s.listener)
 	s.StartedService.Close()
-	s.oomRecorder.Close()
+	if s.oomRecorder != nil {
+		s.oomRecorder.Close()
+	}
 	s.powerManager.Close()
 }
 

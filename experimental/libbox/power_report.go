@@ -1,4 +1,4 @@
-//go:build darwin || linux || windows
+//go:build !ferry_mobile && (darwin || linux || windows)
 
 package libbox
 

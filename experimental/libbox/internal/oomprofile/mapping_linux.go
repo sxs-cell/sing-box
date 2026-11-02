@@ -1,4 +1,4 @@
-//go:build linux
+//go:build !ferry_mobile && (linux)
 
 package oomprofile
 

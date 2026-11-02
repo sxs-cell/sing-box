@@ -1,4 +1,4 @@
-//go:build windows
+//go:build !ferry_mobile && (windows)
 
 package oomprofile
 
